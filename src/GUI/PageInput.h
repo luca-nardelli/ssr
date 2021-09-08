@@ -169,9 +169,10 @@ private:
 	QLabel *m_label_video_x, *m_label_video_y, *m_label_video_w, *m_label_video_h;
 	QSpinBoxWithSignal *m_spinbox_video_x, *m_spinbox_video_y, *m_spinbox_video_w, *m_spinbox_video_h;
 	QSpinBox *m_spinbox_video_frame_rate;
-	QCheckBox *m_checkbox_scale;
+	QCheckBox *m_checkbox_scale, *m_checkbox_scale_factor;
 	QLabel *m_label_video_scaled_w, *m_label_video_scaled_h;
 	QSpinBox *m_spinbox_video_scaled_w, *m_spinbox_video_scaled_h;
+    QDoubleSpinBox *m_dblspinbox_video_scale_factor;
 	QCheckBox *m_checkbox_record_cursor;
 
 	QCheckBox *m_checkbox_audio_enable;
@@ -245,7 +246,9 @@ public slots:
 	void OnUpdateRecordingFrame();
 	void OnUpdateVideoAreaFields();
 	void OnUpdateVideoScaleFields();
+    void OnUpdateScaleFactorCheckbox();
 	void OnUpdateAudioFields();
+    void OnUpdateVideoScaleFactor();
 
 private slots:
 	void OnFocusChange(QWidget* old, QWidget* now);
@@ -282,6 +285,8 @@ public:
 	inline unsigned int GetVideoH() { return m_spinbox_video_h->value(); }
 	inline unsigned int GetVideoFrameRate() { return m_spinbox_video_frame_rate->value(); }
 	inline bool GetVideoScalingEnabled() { return m_checkbox_scale->isChecked(); }
+    inline bool GetVideoScalingScaleFactorEnabled() { return m_checkbox_scale_factor->isChecked(); }
+    inline double GetVideoScaleFactor() { return m_dblspinbox_video_scale_factor->value(); }
 	inline unsigned int GetVideoScaledW() { return m_spinbox_video_scaled_w->value(); }
 	inline unsigned int GetVideoScaledH() { return m_spinbox_video_scaled_h->value(); }
 	inline bool GetVideoRecordCursor() { return m_checkbox_record_cursor->isChecked(); }
@@ -319,6 +324,8 @@ public:
 	inline void SetVideoH(unsigned int h) { m_spinbox_video_h->setValue(h); }
 	inline void SetVideoFrameRate(unsigned int frame_rate) { m_spinbox_video_frame_rate->setValue(frame_rate); }
 	inline void SetVideoScalingEnabled(bool enable) { m_checkbox_scale->setChecked(enable); }
+    inline void SetVideoScalingScaleFactorEnabled(bool enable) { m_checkbox_scale_factor->setChecked(enable); }
+    inline void SetVideoScaleFactor(double value) { return m_dblspinbox_video_scale_factor->setValue(value); }
 	inline void SetVideoScaledW(unsigned int scaled_w) { m_spinbox_video_scaled_w->setValue(scaled_w); }
 	inline void SetVideoScaledH(unsigned int scaled_h) { m_spinbox_video_scaled_h->setValue(scaled_h); }
 	inline void SetVideoRecordCursor(bool show) { m_checkbox_record_cursor->setChecked(show); }

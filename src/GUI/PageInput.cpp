@@ -340,7 +340,14 @@ PageInput::PageInput(MainWindow* main_window)
 			m_spinbox_video_frame_rate->setToolTip(tr("The number of frames per second in the final video. Higher frame rates use more CPU time."));
 			m_checkbox_scale = new QCheckBox(tr("Scale video"), groupbox_video);
 			m_checkbox_scale->setToolTip(tr("Enable or disable scaling. Scaling uses more CPU time, but if the scaled video is smaller, it could make the encoding faster."));
-			m_label_video_scaled_w = new QLabel(tr("Scaled width:"), groupbox_video);
+            m_checkbox_scale_factor = new QCheckBox(tr("Use scale factor"), groupbox_video);
+            m_checkbox_scale_factor->setToolTip(tr("Use a scaling factor instead of a fixed resolution"));
+            m_dblspinbox_video_scale_factor = new QDoubleSpinBox(groupbox_video);
+            m_dblspinbox_video_scale_factor->setRange(0,10);
+            m_dblspinbox_video_scale_factor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            m_dblspinbox_video_scale_factor->setDecimals(2);
+            m_dblspinbox_video_scale_factor->setSingleStep(0.01);
+            m_label_video_scaled_w = new QLabel(tr("Scaled width:"), groupbox_video);
 			m_spinbox_video_scaled_w = new QSpinBox(groupbox_video);
 			m_spinbox_video_scaled_w->setRange(0, SSR_MAX_IMAGE_SIZE);
 			m_spinbox_video_scaled_w->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -373,6 +380,8 @@ PageInput::PageInput(MainWindow* main_window)
 			connect(m_pushbutton_video_opengl_settings, SIGNAL(clicked()), this, SLOT(OnGLInjectDialog()));
 #endif
 			connect(m_checkbox_scale, SIGNAL(clicked()), this, SLOT(OnUpdateVideoScaleFields()));
+            connect(m_checkbox_scale_factor, SIGNAL(clicked()), this, SLOT(OnUpdateScaleFactorCheckbox()));
+            connect(m_dblspinbox_video_scale_factor, SIGNAL(valueChanged(double)), this, SLOT(OnUpdateVideoScaleFactor()));
 
 			QVBoxLayout *layout = new QVBoxLayout(groupbox_video);
 			{
@@ -428,6 +437,12 @@ PageInput::PageInput(MainWindow* main_window)
 				layout2->addWidget(m_spinbox_video_frame_rate, 0, 1);
 			}
 			layout->addWidget(m_checkbox_scale);
+            {
+                QGridLayout *layout2 = new QGridLayout();
+                layout->addLayout(layout2);
+                layout2->addWidget(m_checkbox_scale_factor, 0, 0);
+                layout2->addWidget(m_dblspinbox_video_scale_factor, 0, 1);
+            }
 			{
 				QGridLayout *layout2 = new QGridLayout();
 				layout->addLayout(layout2);
@@ -639,8 +654,11 @@ void PageInput::LoadProfileSettings(QSettings* settings) {
 	SetVideoH(settings->value("input/video_h", 600).toUInt());
 	SetVideoFrameRate(settings->value("input/video_frame_rate", 30).toUInt());
 	SetVideoScalingEnabled(settings->value("input/video_scale", false).toBool());
+    SetVideoScalingScaleFactorEnabled(settings->value("input/video_scale_use_factor",false).toBool());
+    SetVideoScaleFactor(settings->value("input/video_scale_factor",false).toDouble());
 	SetVideoScaledW(settings->value("input/video_scaled_w", 854).toUInt());
 	SetVideoScaledH(settings->value("input/video_scaled_h", 480).toUInt());
+
 	SetVideoRecordCursor(settings->value("input/video_record_cursor", true).toBool());
 	SetAudioEnabled(settings->value("input/audio_enabled", true).toBool());
 	SetAudioBackend(StringToEnum(settings->value("input/audio_backend", QString()).toString(), default_audio_backend));
@@ -668,7 +686,7 @@ void PageInput::LoadProfileSettings(QSettings* settings) {
 	OnUpdateVideoAreaFields();
 	OnUpdateVideoScaleFields();
 	OnUpdateAudioFields();
-
+    OnUpdateVideoScaleFactor();
 }
 
 void PageInput::SaveProfileSettings(QSettings* settings) {
@@ -684,6 +702,8 @@ void PageInput::SaveProfileSettings(QSettings* settings) {
 	settings->setValue("input/video_h", GetVideoH());
 	settings->setValue("input/video_frame_rate", GetVideoFrameRate());
 	settings->setValue("input/video_scale", GetVideoScalingEnabled());
+    settings->setValue("input/video_scale_use_factor", GetVideoScalingScaleFactorEnabled());
+    settings->setValue("input/video_scale_factor", GetVideoScaleFactor());
 	settings->setValue("input/video_scaled_w", GetVideoScaledW());
 	settings->setValue("input/video_scaled_h", GetVideoScaledH());
 	settings->setValue("input/video_record_cursor", GetVideoRecordCursor());
@@ -936,6 +956,8 @@ void PageInput::StopGrabbing() {
 	else
 		m_pushbutton_video_select_rectangle->setDown(false);
 	m_grabbing = false;
+    // If we are using a scale-factor based scaling, we should recompute everything
+    OnUpdateVideoScaleFactor();
 }
 
 void PageInput::UpdateRubberBand() {
@@ -1012,6 +1034,17 @@ void PageInput::OnUpdateRecordingFrame() {
 	} else {
 		m_recording_frame.reset();
 	}
+}
+
+void PageInput::OnUpdateVideoScaleFactor() {
+    if(!m_checkbox_scale_factor->isChecked()){
+        return;
+    }
+    const double value = m_dblspinbox_video_scale_factor->value();
+    const int cur_w = m_spinbox_video_w->value();
+    const int cur_h = m_spinbox_video_h->value();
+    m_spinbox_video_scaled_w->setValue(cur_w * value);
+    m_spinbox_video_scaled_h->setValue(cur_h * value);
 }
 
 void PageInput::OnUpdateVideoAreaFields() {
@@ -1129,7 +1162,8 @@ void PageInput::OnUpdateVideoAreaFields() {
 
 void PageInput::OnUpdateVideoScaleFields() {
 	bool enabled = GetVideoScalingEnabled();
-	GroupEnabled({m_label_video_scaled_w, m_spinbox_video_scaled_w, m_label_video_scaled_h, m_spinbox_video_scaled_h}, enabled);
+	GroupEnabled({m_label_video_scaled_w, m_spinbox_video_scaled_w, m_label_video_scaled_h, m_spinbox_video_scaled_h, m_dblspinbox_video_scale_factor, m_checkbox_scale_factor}, enabled);
+    OnUpdateScaleFactorCheckbox();
 }
 
 void PageInput::OnUpdateAudioFields() {
@@ -1238,4 +1272,10 @@ void PageInput::OnContinue() {
 	if(!Validate())
 		return;
 	m_main_window->GoPageOutput();
+}
+
+void PageInput::OnUpdateScaleFactorCheckbox() {
+    const bool enabled = m_checkbox_scale_factor->isChecked();
+    GroupEnabled({m_dblspinbox_video_scale_factor}, enabled);
+    GroupEnabled({m_spinbox_video_scaled_w, m_spinbox_video_scaled_h}, !enabled);
 }
